@@ -3,55 +3,169 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>API Integration Project - Quotes</title>
-    <link rel="stylesheet" href="style.css">
+    <title>QuoteFlow - Inspirational Quotes API</title>
+    <link rel="stylesheet" href="styles.css">
 </head>
 <body>
-    <div class="container">
-        <header>
-            <h1>Inspirational Quotes</h1>
-            <p class="subtitle">Fetching wisdom from the web</p>
-        </header>
-
-        <!-- Quote Display Section -->
-        <main class="quote-section">
-            <!-- Loading State -->
-            <div id="loading" class="loading hidden">
-                <div class="spinner"></div>
-                <p>Loading quote...</p>
+    <!-- Navigation Bar -->
+    <nav class="navbar">
+        <div class="navbar-container">
+            <div class="navbar-brand">
+                <span class="brand-icon">✨</span>
+                <h1>QuoteFlow</h1>
             </div>
-
-            <!-- Quote Display -->
-            <div id="quote-container" class="quote-container hidden">
-                <blockquote class="quote-text">
-                    <p id="quote-content"></p>
-                </blockquote>
-                <p class="quote-author" id="quote-author"></p>
+            <div class="navbar-stats">
+                <div class="stat-item">
+                    <span class="stat-label">Quotes Fetched</span>
+                    <span class="stat-value" id="total-quotes">0</span>
+                </div>
+                <div class="stat-item">
+                    <span class="stat-label">Favorites</span>
+                    <span class="stat-value" id="favorites-count">0</span>
+                </div>
             </div>
-
-            <!-- Error State -->
-            <div id="error-message" class="error-message hidden">
-                <p id="error-text"></p>
-                <button onclick="fetchQuote()" class="retry-btn">Retry</button>
-            </div>
-        </main>
-
-        <!-- Controls -->
-        <div class="controls">
-            <button id="new-quote-btn" class="btn btn-primary" onclick="fetchQuote()">
-                Get New Quote
-            </button>
-            <button id="copy-btn" class="btn btn-secondary" onclick="copyToClipboard()">
-                Copy Quote
-            </button>
         </div>
+    </nav>
 
-        <!-- Stats Section -->
-        <div class="stats">
-            <p>Total quotes fetched: <span id="quote-count">0</span></p>
+    <!-- Main Container -->
+    <main class="main-container">
+        <!-- Sidebar -->
+        <aside class="sidebar">
+            <div class="sidebar-section">
+                <h3>Categories</h3>
+                <div class="categories-list" id="categories-list">
+                    <button class="category-btn active" data-category="all">
+                        <span class="category-icon">⭐</span> All Quotes
+                    </button>
+                </div>
+            </div>
+
+            <div class="sidebar-section">
+                <h3>Quick Access</h3>
+                <button class="quick-btn" onclick="toggleFavorites()">
+                    <span>❤️</span> My Favorites
+                </button>
+                <button class="quick-btn" onclick="toggleDarkMode()">
+                    <span>🌙</span> Dark Mode
+                </button>
+            </div>
+
+            <div class="sidebar-section stats-section">
+                <h3>Session Stats</h3>
+                <div class="mini-stat">
+                    <span class="mini-stat-label">Session Time</span>
+                    <span class="mini-stat-value" id="session-time">00:00</span>
+                </div>
+                <div class="mini-stat">
+                    <span class="mini-stat-label">Quotes Read</span>
+                    <span class="mini-stat-value" id="session-quotes">0</span>
+                </div>
+            </div>
+        </aside>
+
+        <!-- Content Area -->
+        <div class="content-area">
+            <!-- Search Bar -->
+            <div class="search-section">
+                <div class="search-container">
+                    <input 
+                        type="text" 
+                        id="search-input" 
+                        class="search-input" 
+                        placeholder="Search quotes by author or keyword..."
+                    >
+                    <button class="search-btn" onclick="handleSearch()">🔍</button>
+                </div>
+            </div>
+
+            <!-- Main Quote Display -->
+            <section class="quote-display-section">
+                <!-- Loading State -->
+                <div id="loading-state" class="loading-state hidden">
+                    <div class="loader">
+                        <div class="loader-circle"></div>
+                        <div class="loader-circle"></div>
+                        <div class="loader-circle"></div>
+                    </div>
+                    <p>Fetching inspiration...</p>
+                </div>
+
+                <!-- Quote Card -->
+                <div id="quote-card" class="quote-card hidden">
+                    <div class="quote-header">
+                        <span class="quote-number" id="quote-number">1</span>
+                        <button class="favorite-btn" id="favorite-btn" onclick="toggleFavorite()">🤍</button>
+                    </div>
+
+                    <blockquote class="quote-text">
+                        <p id="quote-content"></p>
+                    </blockquote>
+
+                    <div class="quote-footer">
+                        <p class="quote-author" id="quote-author"></p>
+                    </div>
+
+                    <div class="quote-actions">
+                        <button class="action-btn" onclick="copyToClipboard()" title="Copy to clipboard">
+                            📋
+                        </button>
+                        <button class="action-btn" onclick="shareQuote('twitter')" title="Share on Twitter">
+                            𝕏
+                        </button>
+                        <button class="action-btn" onclick="shareQuote('facebook')" title="Share on Facebook">
+                            f
+                        </button>
+                        <button class="action-btn" onclick="shareQuote('whatsapp')" title="Share on WhatsApp">
+                            💬
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Error State -->
+                <div id="error-state" class="error-state hidden">
+                    <div class="error-icon">⚠️</div>
+                    <h3 id="error-title">Something went wrong</h3>
+                    <p id="error-message"></p>
+                    <button class="btn btn-primary" onclick="fetchQuote()">Try Again</button>
+                </div>
+
+                <!-- Empty State -->
+                <div id="empty-state" class="empty-state hidden">
+                    <div class="empty-icon">🔍</div>
+                    <h3>No quotes found</h3>
+                    <p>Try a different search</p>
+                    <button class="btn btn-primary" onclick="clearSearch()">Clear Search</button>
+                </div>
+            </section>
+
+            <!-- Control Buttons -->
+            <div class="controls-section">
+                <button class="btn btn-primary btn-large" id="next-btn" onclick="fetchQuote()">
+                    Get New Quote
+                </button>
+                <button class="btn btn-secondary" id="prev-btn" onclick="previousQuote()">
+                    ← Previous
+                </button>
+            </div>
+
+            <!-- Favorites List -->
+            <section id="favorites-section" class="favorites-section hidden">
+                <h2>My Favorite Quotes</h2>
+                <div class="favorites-grid" id="favorites-grid"></div>
+            </section>
+
+            <!-- Quote History -->
+            <section class="history-section">
+                <h2>Recent Quotes</h2>
+                <div class="history-carousel" id="history-carousel"></div>
+            </section>
         </div>
-    </div>
+    </main>
 
+    <!-- Notification Toast -->
+    <div id="notification" class="notification hidden"></div>
+
+    <!-- Scripts -->
     <script src="script.js"></script>
 </body>
 </html>
