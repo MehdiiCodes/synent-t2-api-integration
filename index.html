@@ -54,7 +54,7 @@
                 <h3>Session Stats</h3>
                 <div class="mini-stat">
                     <span class="mini-stat-label">Session Time</span>
-                    <span class="mini-stat-value" id="session-time">00:00</span>
+                    <span class="mini-stat-value" id="session-time">00:00:00</span>
                 </div>
                 <div class="mini-stat">
                     <span class="mini-stat-label">Quotes Read</span>
@@ -126,7 +126,10 @@
                     <div class="error-icon">⚠️</div>
                     <h3 id="error-title">Something went wrong</h3>
                     <p id="error-message"></p>
-                    <button class="btn btn-primary" onclick="fetchQuote()">Try Again</button>
+                    <div class="error-actions">
+                        <button class="btn btn-primary" onclick="fetchQuote()">Try Again</button>
+                        <button class="btn btn-secondary" onclick="loadDemoQuote()">Load Demo Quote</button>
+                    </div>
                 </div>
 
                 <!-- Empty State -->

@@ -1,11 +1,46 @@
 /* ============================================
-   API INTEGRATION PROJECT - ADVANCED QUOTES APP
+   ADVANCED QUOTES APP - FIXED VERSION
    ============================================ */
 
 // Constants
 const QUOTE_API_URL = 'https://api.quotable.io/random';
+const API_TIMEOUT = 8000;
 const HISTORY_LIMIT = 20;
 const SESSION_UPDATE_INTERVAL = 1000;
+
+// Demo quotes for fallback
+const DEMO_QUOTES = [
+    {
+        id: 1,
+        content: "The only way to do great work is to love what you do.",
+        author: "Steve Jobs",
+        category: "Inspiration"
+    },
+    {
+        id: 2,
+        content: "Innovation distinguishes between a leader and a follower.",
+        author: "Steve Jobs",
+        category: "Leadership"
+    },
+    {
+        id: 3,
+        content: "Life is what happens when you're busy making other plans.",
+        author: "John Lennon",
+        category: "Life"
+    },
+    {
+        id: 4,
+        content: "The future belongs to those who believe in the beauty of their dreams.",
+        author: "Eleanor Roosevelt",
+        category: "Motivation"
+    },
+    {
+        id: 5,
+        content: "It is during our darkest moments that we must focus to see the light.",
+        author: "Aristotle",
+        category: "Wisdom"
+    }
+];
 
 // State Management
 const state = {
@@ -18,6 +53,7 @@ const state = {
     sessionQuoteCount: 0,
     showingFavorites: false,
     darkMode: localStorage.getItem('darkMode') === 'true',
+    isLoadingFromAPI: false,
 };
 
 // DOM Elements
@@ -52,22 +88,15 @@ const elements = {
 document.addEventListener('DOMContentLoaded', () => {
     console.log('[v0] App initializing...');
     
-    // Load saved data
     loadSavedData();
     
-    // Apply dark mode
     if (state.darkMode) {
         document.body.classList.add('dark-mode');
     }
     
-    // Start session timer
     startSessionTimer();
-    
-    // Fetch initial quote
-    fetchQuote();
-    
-    // Setup event listeners
     setupEventListeners();
+    fetchQuote();
     
     console.log('[v0] App initialized successfully');
 });
@@ -81,8 +110,20 @@ function setupEventListeners() {
 }
 
 // ============================================
-// QUOTE FETCHING
+// QUOTE FETCHING WITH TIMEOUT & ERROR HANDLING
 // ============================================
+
+function fetchQuoteWithTimeout(url, timeout = API_TIMEOUT) {
+    return Promise.race([
+        fetch(url, {
+            method: 'GET',
+            headers: { 'Content-Type': 'application/json' }
+        }),
+        new Promise((_, reject) =>
+            setTimeout(() => reject(new Error('API request timeout')), timeout)
+        )
+    ]);
+}
 
 async function fetchQuote() {
     try {
@@ -90,48 +131,71 @@ async function fetchQuote() {
         hideErrorState();
         hideEmptyState();
 
-        const response = await fetch(QUOTE_API_URL, {
-            method: 'GET',
-            headers: { 'Content-Type': 'application/json' }
-        });
+        state.isLoadingFromAPI = true;
+
+        const response = await fetchQuoteWithTimeout(QUOTE_API_URL);
 
         if (!response.ok) {
-            throw new Error(`API Error: ${response.status}`);
+            throw new Error(`API returned ${response.status}: ${response.statusText}`);
         }
 
         const data = await response.json();
 
-        // Validate data
         if (!data.content || !data.author) {
-            throw new Error('Invalid data format from API');
+            throw new Error('Invalid API response format');
         }
 
-        // Create quote object
         const quote = {
             id: Date.now(),
             content: data.content,
             author: data.author.replace(', type.fit', ''),
             category: data.tags && data.tags[0] ? data.tags[0] : 'Inspirational',
-            timestamp: new Date()
+            timestamp: new Date(),
+            source: 'api'
         };
 
-        // Update state
         state.currentQuote = quote;
         state.quotes.push(quote);
         state.quoteCount++;
         state.sessionQuoteCount++;
 
-        // Add to history
         addToHistory(quote);
-
-        // Display quote
         displayQuote(quote);
         updateStats();
+        state.isLoadingFromAPI = false;
 
     } catch (error) {
-        console.error('[v0] Error fetching quote:', error.message);
-        showErrorState(error.message);
+        console.error('[v0] Fetch error:', error.message);
+        state.isLoadingFromAPI = false;
+        
+        if (state.history.length > 0) {
+            showErrorState(`Could not reach server: ${error.message}`);
+        } else {
+            showErrorState(`Network error: ${error.message}`);
+        }
     }
+}
+
+function loadDemoQuote() {
+    const randomDemo = DEMO_QUOTES[Math.floor(Math.random() * DEMO_QUOTES.length)];
+    
+    const quote = {
+        ...randomDemo,
+        id: Date.now(),
+        timestamp: new Date(),
+        source: 'demo'
+    };
+
+    state.currentQuote = quote;
+    state.quotes.push(quote);
+    state.quoteCount++;
+    state.sessionQuoteCount++;
+
+    addToHistory(quote);
+    displayQuote(quote);
+    updateStats();
+
+    showNotification('Loaded demo quote', 'success');
 }
 
 function displayQuote(quote) {
@@ -142,7 +206,6 @@ function displayQuote(quote) {
     elements.quoteAuthor.textContent = quote.author;
     elements.quoteNumber.textContent = state.quoteCount;
 
-    // Check if favorite
     const isFavorite = state.favorites.some(fav => fav.id === quote.id);
     updateFavoriteButton(isFavorite);
 
@@ -152,6 +215,8 @@ function displayQuote(quote) {
 function showLoadingState() {
     elements.loadingState.classList.remove('hidden');
     elements.quoteCard.classList.add('hidden');
+    elements.errorState.classList.add('hidden');
+    elements.emptyState.classList.add('hidden');
 }
 
 function hideLoadingState() {
@@ -165,6 +230,7 @@ function showQuoteCard() {
 function showErrorState(message) {
     elements.loadingState.classList.add('hidden');
     elements.quoteCard.classList.add('hidden');
+    elements.emptyState.classList.add('hidden');
     elements.errorState.classList.remove('hidden');
     elements.errorMessage.textContent = message || 'Failed to fetch quote. Please try again.';
 }
@@ -234,7 +300,7 @@ function toggleFavorites() {
 
 function renderFavorites() {
     if (state.favorites.length === 0) {
-        elements.favoritesGrid.innerHTML = '<p style="color: var(--text-secondary);">No favorites yet!</p>';
+        elements.favoritesGrid.innerHTML = '<p style="color: var(--text-secondary); grid-column: 1/-1; text-align: center;">No favorites yet!</p>';
         return;
     }
 
@@ -242,7 +308,7 @@ function renderFavorites() {
         <div class="favorite-card">
             <p>"${quote.content}"</p>
             <p class="favorite-card-author">— ${quote.author}</p>
-            <button class="favorite-card-remove" onclick="removeFavorite('${quote.id}')">
+            <button class="favorite-card-remove" onclick="removeFavorite(${quote.id})">
                 Remove
             </button>
         </div>
@@ -276,7 +342,7 @@ function renderHistory() {
     }
 
     elements.historyCar.innerHTML = state.history.map(quote => `
-        <div class="history-item" onclick="selectHistoryQuote('${quote.id}')">
+        <div class="history-item" onclick="selectHistoryQuote(${quote.id})">
             <p class="history-item-text">"${quote.content}"</p>
             <p class="history-item-author">${quote.author}</p>
         </div>
@@ -312,10 +378,9 @@ function copyToClipboard() {
     navigator.clipboard.writeText(text)
         .then(() => {
             showNotification('Quote copied to clipboard!', 'success');
-            console.log('[v0] Quote copied successfully');
         })
         .catch(error => {
-            console.error('[v0] Failed to copy:', error);
+            console.error('[v0] Copy failed:', error);
             showNotification('Failed to copy quote', 'error');
         });
 }
@@ -359,9 +424,6 @@ function handleSearch() {
         return;
     }
 
-    console.log('[v0] Searching for:', searchTerm);
-
-    // Filter from history
     const filtered = state.quotes.filter(quote => 
         quote.content.toLowerCase().includes(searchTerm) ||
         quote.author.toLowerCase().includes(searchTerm)
@@ -369,11 +431,9 @@ function handleSearch() {
 
     if (filtered.length === 0) {
         showEmptyState();
-        console.log('[v0] No quotes found for search term');
         return;
     }
 
-    // Display first result
     const randomResult = filtered[Math.floor(Math.random() * filtered.length)];
     state.currentQuote = randomResult;
     displayQuote(randomResult);
@@ -446,7 +506,6 @@ function saveCurrentState() {
     };
 
     localStorage.setItem('quoteAppState', JSON.stringify(dataToSave));
-    console.log('[v0] State saved to localStorage');
 }
 
 function loadSavedData() {
@@ -459,9 +518,8 @@ function loadSavedData() {
             state.history = data.history || [];
             state.quoteCount = data.quoteCount || 0;
             state.sessionStartTime = data.sessionStartTime || Date.now();
-            console.log('[v0] Data loaded from localStorage');
         } catch (error) {
-            console.error('[v0] Failed to load saved data:', error);
+            console.error('[v0] Load error:', error);
         }
     }
 
@@ -469,4 +527,4 @@ function loadSavedData() {
     renderHistory();
 }
 
-console.log('[v0] Advanced Quotes App Script Loaded');
+console.log('[v0] Advanced Quotes App Loaded Successfully');

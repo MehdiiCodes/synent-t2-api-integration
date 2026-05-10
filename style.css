@@ -559,6 +559,13 @@ body.dark-mode {
     margin-bottom: var(--spacing-md);
 }
 
+.error-actions {
+    display: flex;
+    gap: var(--spacing-md);
+    justify-content: center;
+    flex-wrap: wrap;
+}
+
 /* Empty State */
 .empty-state {
     text-align: center;
@@ -862,6 +869,14 @@ body.dark-mode {
         right: 1rem;
         left: 1rem;
         text-align: center;
+    }
+
+    .error-actions {
+        flex-direction: column;
+    }
+
+    .error-actions .btn {
+        width: 100%;
     }
 }
 
