@@ -1,10 +1,48 @@
 /* ============================================
-   ADVANCED QUOTES APP - FIXED VERSION
+   ADVANCED QUOTES APP - MULTI-API VERSION
    ============================================ */
 
+// API Endpoints with parsers
+const API_ENDPOINTS = [
+    {
+        name: 'Quotable',
+        url: 'https://api.quotable.io/random',
+        parser: (data) => ({
+            content: data.content,
+            author: data.author.replace(', type.fit', '')
+        })
+    },
+    {
+        name: 'ZenQuotes',
+        url: 'https://zenquotes.io/api/random',
+        parser: (data) => ({
+            content: data[0].q,
+            author: data[0].a.replace(', type.fit', '')
+        })
+    },
+    {
+        name: 'Type.fit',
+        url: 'https://type.fit/api/quotes',
+        parser: (data) => {
+            const random = data[Math.floor(Math.random() * data.length)];
+            return {
+                content: random.text,
+                author: random.author ? random.author.split(',')[0].replace(/-/g, '').trim() : 'Unknown'
+            };
+        }
+    },
+    {
+        name: 'Advice Slip',
+        url: 'https://api.adviceslip.com/advice',
+        parser: (data) => ({
+            content: data.slip.advice,
+            author: 'Advice Slip API'
+        })
+    }
+];
+
 // Constants
-const QUOTE_API_URL = 'https://api.quotable.io/random';
-const API_TIMEOUT = 8000;
+const API_TIMEOUT = 5000;
 const HISTORY_LIMIT = 20;
 const SESSION_UPDATE_INTERVAL = 1000;
 
@@ -39,6 +77,24 @@ const DEMO_QUOTES = [
         content: "It is during our darkest moments that we must focus to see the light.",
         author: "Aristotle",
         category: "Wisdom"
+    },
+    {
+        id: 6,
+        content: "The best time to plant a tree was 20 years ago. The second best time is now.",
+        author: "Chinese Proverb",
+        category: "Wisdom"
+    },
+    {
+        id: 7,
+        content: "Success is not final, failure is not fatal: it is the courage to continue that counts.",
+        author: "Winston Churchill",
+        category: "Success"
+    },
+    {
+        id: 8,
+        content: "Believe you can and you're halfway there.",
+        author: "Theodore Roosevelt",
+        category: "Confidence"
     }
 ];
 
@@ -110,7 +166,7 @@ function setupEventListeners() {
 }
 
 // ============================================
-// QUOTE FETCHING WITH TIMEOUT & ERROR HANDLING
+// QUOTE FETCHING WITH MULTI-API FALLBACK
 // ============================================
 
 function fetchQuoteWithTimeout(url, timeout = API_TIMEOUT) {
@@ -120,7 +176,7 @@ function fetchQuoteWithTimeout(url, timeout = API_TIMEOUT) {
             headers: { 'Content-Type': 'application/json' }
         }),
         new Promise((_, reject) =>
-            setTimeout(() => reject(new Error('API request timeout')), timeout)
+            setTimeout(() => reject(new Error('timeout')), timeout)
         )
     ]);
 }
@@ -133,26 +189,55 @@ async function fetchQuote() {
 
         state.isLoadingFromAPI = true;
 
-        const response = await fetchQuoteWithTimeout(QUOTE_API_URL);
+        let quote = null;
+        let attemptedAPIs = [];
 
-        if (!response.ok) {
-            throw new Error(`API returned ${response.status}: ${response.statusText}`);
+        // Try each API endpoint in order
+        for (let i = 0; i < API_ENDPOINTS.length; i++) {
+            const endpoint = API_ENDPOINTS[i];
+            attemptedAPIs.push(endpoint.name);
+            
+            try {
+                console.log(`[v0] Attempting ${endpoint.name}...`);
+                
+                const response = await fetchQuoteWithTimeout(endpoint.url);
+
+                if (!response.ok) {
+                    throw new Error(`Status ${response.status}`);
+                }
+
+                const data = await response.json();
+                const parsedData = endpoint.parser(data);
+
+                if (!parsedData.content || !parsedData.author) {
+                    throw new Error('Invalid response format');
+                }
+
+                console.log(`[v0] Success with ${endpoint.name}`);
+
+                quote = {
+                    id: Date.now() + Math.random(),
+                    content: parsedData.content,
+                    author: parsedData.author,
+                    category: 'Inspirational',
+                    timestamp: new Date(),
+                    source: endpoint.name
+                };
+
+                break;
+                
+            } catch (error) {
+                console.warn(`[v0] ${endpoint.name} failed: ${error.message}`);
+                continue;
+            }
         }
 
-        const data = await response.json();
-
-        if (!data.content || !data.author) {
-            throw new Error('Invalid API response format');
+        // If all APIs failed, use demo quote
+        if (!quote) {
+            console.warn('[v0] All APIs failed, using demo quote');
+            loadDemoQuote();
+            return;
         }
-
-        const quote = {
-            id: Date.now(),
-            content: data.content,
-            author: data.author.replace(', type.fit', ''),
-            category: data.tags && data.tags[0] ? data.tags[0] : 'Inspirational',
-            timestamp: new Date(),
-            source: 'api'
-        };
 
         state.currentQuote = quote;
         state.quotes.push(quote);
@@ -165,14 +250,9 @@ async function fetchQuote() {
         state.isLoadingFromAPI = false;
 
     } catch (error) {
-        console.error('[v0] Fetch error:', error.message);
+        console.error('[v0] Unexpected error:', error.message);
         state.isLoadingFromAPI = false;
-        
-        if (state.history.length > 0) {
-            showErrorState(`Could not reach server: ${error.message}`);
-        } else {
-            showErrorState(`Network error: ${error.message}`);
-        }
+        loadDemoQuote();
     }
 }
 
@@ -181,7 +261,7 @@ function loadDemoQuote() {
     
     const quote = {
         ...randomDemo,
-        id: Date.now(),
+        id: Date.now() + Math.random(),
         timestamp: new Date(),
         source: 'demo'
     };
@@ -195,7 +275,7 @@ function loadDemoQuote() {
     displayQuote(quote);
     updateStats();
 
-    showNotification('Loaded demo quote', 'success');
+    showNotification('Using demo quote - trying again soon...', 'error');
 }
 
 function displayQuote(quote) {
@@ -527,4 +607,4 @@ function loadSavedData() {
     renderHistory();
 }
 
-console.log('[v0] Advanced Quotes App Loaded Successfully');
+console.log('[v0] Advanced Quotes App with Multi-API Support Loaded');
