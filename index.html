@@ -1,0 +1,57 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>API Integration Project - Quotes</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>Inspirational Quotes</h1>
+            <p class="subtitle">Fetching wisdom from the web</p>
+        </header>
+
+        <!-- Quote Display Section -->
+        <main class="quote-section">
+            <!-- Loading State -->
+            <div id="loading" class="loading hidden">
+                <div class="spinner"></div>
+                <p>Loading quote...</p>
+            </div>
+
+            <!-- Quote Display -->
+            <div id="quote-container" class="quote-container hidden">
+                <blockquote class="quote-text">
+                    <p id="quote-content"></p>
+                </blockquote>
+                <p class="quote-author" id="quote-author"></p>
+            </div>
+
+            <!-- Error State -->
+            <div id="error-message" class="error-message hidden">
+                <p id="error-text"></p>
+                <button onclick="fetchQuote()" class="retry-btn">Retry</button>
+            </div>
+        </main>
+
+        <!-- Controls -->
+        <div class="controls">
+            <button id="new-quote-btn" class="btn btn-primary" onclick="fetchQuote()">
+                Get New Quote
+            </button>
+            <button id="copy-btn" class="btn btn-secondary" onclick="copyToClipboard()">
+                Copy Quote
+            </button>
+        </div>
+
+        <!-- Stats Section -->
+        <div class="stats">
+            <p>Total quotes fetched: <span id="quote-count">0</span></p>
+        </div>
+    </div>
+
+    <script src="script.js"></script>
+</body>
+</html>
